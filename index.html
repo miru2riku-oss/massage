@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>マッサージ券 管理システム</title>
+    <style>
+        :root {
+            --primary-color: #4CAF50;
+            --bg-color: #f4f7f6;
+            --text-color: #333;
+            --card-bg: #fff;
+        }
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .container {
+            background: var(--card-bg);
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+        h1 {
+            font-size: 1.5rem;
+            margin-bottom: 2rem;
+            color: var(--primary-color);
+        }
+        .section {
+            margin-bottom: 2rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid #eee;
+        }
+        .section:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+        button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            width: 100%;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            font-size: 1.2rem;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            box-sizing: border-box;
+            text-align: center;
+            letter-spacing: 2px;
+        }
+        .result-box {
+            margin-top: 15px;
+            font-weight: bold;
+            font-size: 1.2rem;
+            min-height: 24px;
+        }
+        .success { color: #4CAF50; }
+        .error { color: #f44336; }
+        .ticket-id-display {
+            font-size: 2rem;
+            letter-spacing: 4px;
+            color: #333;
+            margin: 10px 0;
+            background: #f9f9f9;
+            padding: 10px;
+            border-radius: 8px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>💆‍♂️ マッサージ券管理システム</h1>
+
+    <div class="section">
+        <h2>チケットを発行</h2>
+        <button onclick="issueTicket()">新規発行する</button>
+        <div id="issuedTicketId" class="ticket-id-display"></div>
+        <div id="issueMessage" class="result-box"></div>
+    </div>
+
+    <div class="section">
+        <h2>チケットを使用</h2>
+        <input type="text" id="ticketInput" placeholder="6桁のIDを入力" maxlength="6">
+        <button onclick="useTicket()">使用する</button>
+        <div id="useMessage" class="result-box"></div>
+    </div>
+</div>
+
+<script>
+    const API_BASE_URL = 'http://localhost:8080/api/tickets';
+
+    // チケット発行処理
+    async function issueTicket() {
+        const messageBox = document.getElementById('issueMessage');
+        const displayBox = document.getElementById('issuedTicketId');
+        
+        try {
+            const response = await fetch(`${API_BASE_URL}/issue`, { method: 'POST' });
+            if (response.ok) {
+                const id = await response.text();
+                displayBox.style.display = 'block';
+                displayBox.innerText = id;
+                messageBox.className = 'result-box success';
+                messageBox.innerText = '発行完了！';
+            } else {
+                throw new Error('サーバーエラー');
+            }
+        } catch (error) {
+            messageBox.className = 'result-box error';
+            messageBox.innerText = '発行に失敗しました。';
+        }
+    }
+
+    // チケット使用処理
+    async function useTicket() {
+        const ticketId = document.getElementById('ticketInput').value;
+        const messageBox = document.getElementById('useMessage');
+
+        if (!ticketId || ticketId.length !== 6) {
+            messageBox.className = 'result-box error';
+            messageBox.innerText = '6桁のIDを入力してください。';
+            return;
+        }
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/use`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: ticketId })
+            });
+            const result = await response.json();
+
+            if (result.status === 'success') {
+                messageBox.className = 'result-box success';
+                messageBox.innerText = result.message;
+            } else {
+                messageBox.className = 'result-box error';
+                messageBox.innerText = result.message; // 「使用済みです」などが表示される
+            }
+        } catch (error) {
+            messageBox.className = 'result-box error';
+            messageBox.innerText = '通信エラーが発生しました。';
+        }
+    }
+</script>
+
+</body>
+</html>
