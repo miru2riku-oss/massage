@@ -2,10 +2,10 @@
 
 /* --- カラーパレットと基本設定 --- */
 :root {
-    --primary-color: #4CAF50;     /* 優しいグリーン */
-    --primary-hover: #388E3C;     /* ホバー時の濃いグリーン */
-    --bg-color: #E8F5E9;          /* 背景の極薄いグリーン */
-    --card-bg: #FFFFFF;           /* カードの背景（白） */
+    --primary-color: #4CAF50;     
+    --primary-hover: #388E3C;     
+    --bg-color: #E8F5E9;          
+    --card-bg: #FFFFFF;           
     --text-color: #333333;
     --error-color: #D32F2F;
     --error-bg: #FFEBEE;
@@ -20,8 +20,10 @@ body {
     display: flex;
     justify-content: center;
     align-items: center;
-    height: 100vh;
+    min-height: 100vh;
     margin: 0;
+    padding: 20px;
+    box-sizing: border-box;
 }
 
 /* --- メインのカード部分 --- */
@@ -33,6 +35,7 @@ body {
     width: 100%;
     max-width: 420px;
     text-align: center;
+    position: relative;
 }
 
 h1 {
@@ -45,9 +48,9 @@ h1 {
 
 /* --- セクションの区切り --- */
 .section {
-    margin-bottom: 2.5rem;
-    padding-bottom: 2rem;
-    border-bottom: 2px dashed #E0E0E0; /* チケットの切り取り線風 */
+    margin-bottom: 2rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 2px dashed #E0E0E0;
 }
 
 .section:last-child {
@@ -60,6 +63,31 @@ h2 {
     font-size: 1.1rem;
     color: #555;
     margin-bottom: 1rem;
+}
+
+/* --- 入力・選択フォーム --- */
+input[type="text"], select {
+    width: 100%;
+    padding: 12px;
+    font-size: 1.2rem;
+    margin-bottom: 15px;
+    border: 2px solid #E0E0E0;
+    border-radius: 8px;
+    box-sizing: border-box;
+    text-align: center;
+    transition: border-color 0.3s;
+    background-color: #fff;
+    cursor: pointer;
+}
+
+input[type="text"] {
+    letter-spacing: 4px;
+    cursor: text;
+}
+
+input[type="text"]:focus, select:focus {
+    outline: none;
+    border-color: var(--primary-color);
 }
 
 /* --- ボタンのスタイル --- */
@@ -83,31 +111,17 @@ button:hover {
     box-shadow: 0 6px 12px rgba(76, 175, 80, 0.3);
 }
 
-button:active {
-    transform: translateY(0);
-    box-shadow: 0 2px 4px rgba(76, 175, 80, 0.2);
+button.secondary-btn {
+    background-color: #757575;
+    margin-top: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
-/* --- 入力フォーム --- */
-input[type="text"] {
-    width: 100%;
-    padding: 12px;
-    font-size: 1.4rem;
-    margin-bottom: 15px;
-    border: 2px solid #E0E0E0;
-    border-radius: 8px;
-    box-sizing: border-box;
-    text-align: center;
-    letter-spacing: 4px;
-    transition: border-color 0.3s;
+button.secondary-btn:hover {
+    background-color: #616161;
 }
 
-input[type="text"]:focus {
-    outline: none;
-    border-color: var(--primary-color);
-}
-
-/* --- 発行されたチケットIDの表示部 --- */
+/* --- 結果・ID表示部 --- */
 .ticket-id-display {
     font-size: 2.5rem;
     font-weight: bold;
@@ -116,12 +130,11 @@ input[type="text"]:focus {
     margin: 15px 0;
     background: #FAFAFA;
     padding: 15px;
-    border: 2px dashed #BDBDBD; /* ここもチケット風に */
+    border: 2px dashed #BDBDBD;
     border-radius: 8px;
-    display: none; /* 初期状態は非表示 */
+    display: none;
 }
 
-/* --- 結果メッセージの表示部 --- */
 .result-box {
     margin-top: 15px;
     font-weight: bold;
@@ -129,19 +142,88 @@ input[type="text"]:focus {
     padding: 10px;
     border-radius: 6px;
     min-height: 20px;
-    display: none; /* メッセージがない時はスペースを詰める */
+    display: none;
 }
 
-.result-box.show {
-    display: block;
+.result-box.show { display: block; }
+.success { color: var(--success-color); background-color: var(--success-bg); }
+.error { color: var(--error-color); background-color: var(--error-bg); }
+
+/* --- 右下のバージョン表示 --- */
+.version-text {
+    position: fixed;
+    bottom: 10px;
+    right: 15px;
+    color: #9e9e9e;
+    font-size: 0.85rem;
+    font-weight: bold;
 }
 
-.success { 
-    color: var(--success-color); 
-    background-color: var(--success-bg);
+/* --- 履歴モーダル（ポップアップ） --- */
+.modal {
+    display: none; /* 初期状態は非表示 */
+    position: fixed;
+    z-index: 100;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
 }
 
-.error { 
-    color: var(--error-color); 
-    background-color: var(--error-bg);
+.modal-content {
+    background-color: #fdfdfd;
+    margin: 10% auto;
+    padding: 20px;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 400px;
+    max-height: 70vh;
+    overflow-y: auto;
+    position: relative;
+}
+
+.close-btn {
+    position: absolute;
+    right: 20px;
+    top: 15px;
+    font-size: 28px;
+    font-weight: bold;
+    color: #aaa;
+    cursor: pointer;
+}
+
+.close-btn:hover { color: #333; }
+
+.history-list {
+    text-align: left;
+    margin-top: 20px;
+}
+
+.history-list h3 {
+    font-size: 1rem;
+    color: var(--primary-color);
+    border-bottom: 2px solid var(--primary-color);
+    padding-bottom: 5px;
+    margin-top: 20px;
+}
+
+.history-list ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.history-list li {
+    padding: 10px 5px;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.95rem;
+}
+
+.history-date {
+    font-size: 0.75rem;
+    color: #888;
 }
