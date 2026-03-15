@@ -13,6 +13,13 @@
 
     <div class="section">
         <h2>チケットを発行</h2>
+        <select id="massageDuration">
+            <option value="10">10分コース</option>
+            <option value="15">15分コース</option>
+            <option value="30" selected>30分コース</option>
+            <option value="60">60分コース</option>
+            <option value="90">90分コース</option>
+        </select>
         <button onclick="issueTicket()">新規発行する</button>
         <div id="issuedTicketId" class="ticket-id-display"></div>
         <div id="issueMessage" class="result-box"></div>
@@ -24,56 +31,75 @@
         <button onclick="useTicket()">使用する</button>
         <div id="useMessage" class="result-box"></div>
     </div>
+
+    <div class="section" style="border-bottom: none;">
+        <button class="secondary-btn" onclick="openHistory()">📋 発行・使用履歴を見る</button>
+    </div>
+</div>
+
+<div class="version-text">v1.1.0</div>
+
+<div id="historyModal" class="modal">
+    <div class="modal-content">
+        <span class="close-btn" onclick="closeHistory()">&times;</span>
+        <h2 style="margin-top: 0; text-align: center;">チケット履歴</h2>
+        
+        <div class="history-list">
+            <h3>🎫 未使用のチケット</h3>
+            <ul id="unusedList"></ul>
+
+            <h3 style="color: #757575; border-color: #757575;">✅ 使用済みのチケット</h3>
+            <ul id="usedList"></ul>
+        </div>
+    </div>
 </div>
 
 <script>
-    // --- データベース（ローカルストレージ）操作用の補助関数 ---
-
-    // デバイスからチケットの記録を読み込む
+    // --- データベース（ローカルストレージ）操作 ---
     function getTicketDatabase() {
         const data = localStorage.getItem('massageTicketDB');
-        // データがあればJSONから変換、なければ空のオブジェクトを返す
         return data ? JSON.parse(data) : {}; 
     }
 
-    // デバイスにチケットの記録を保存する
     function saveTicketDatabase(db) {
         localStorage.setItem('massageTicketDB', JSON.stringify(db));
     }
 
-    // メッセージ表示用の共通関数
     function showMessage(elementId, message, isSuccess) {
         const box = document.getElementById(elementId);
         box.className = `result-box show ${isSuccess ? 'success' : 'error'}`;
         box.innerText = message;
     }
 
-
     // --- メイン機能 ---
 
     // 1. チケット発行処理
     function issueTicket() {
         const db = getTicketDatabase();
+        const duration = document.getElementById('massageDuration').value; // 選んだ分数を取得
         let newId;
 
-        // すでに存在するIDと被らないように、ランダムな6桁を生成し続ける
         do {
             newId = Math.floor(100000 + Math.random() * 900000).toString();
         } while (db.hasOwnProperty(newId));
 
-        // 生成したIDを「未使用(false)」としてデータベースに登録
-        db[newId] = false;
+        // データの保存形式をアップデート（分数や日付も一緒に保存）
+        const now = new Date();
+        const dateString = `${now.getMonth()+1}/${now.getDate()} ${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
         
-        // ローカルストレージに保存
+        db[newId] = {
+            used: false,
+            duration: duration,
+            date: dateString
+        };
+        
         saveTicketDatabase(db);
 
-        // 画面に表示
         const displayBox = document.getElementById('issuedTicketId');
         displayBox.style.display = 'block';
         displayBox.innerText = newId;
-        showMessage('issueMessage', '発行完了！デバイスに保存しました。', true);
+        showMessage('issueMessage', `${duration}分のチケットを発行しました！`, true);
         
-        // 使用側のメッセージをリセット
         document.getElementById('useMessage').className = 'result-box';
     }
 
@@ -81,7 +107,6 @@
     function useTicket() {
         const ticketId = document.getElementById('ticketInput').value;
 
-        // 入力チェック
         if (!ticketId || ticketId.length !== 6 || isNaN(ticketId)) {
             showMessage('useMessage', '6桁の数字を正しく入力してください。', false);
             return;
@@ -89,20 +114,79 @@
 
         const db = getTicketDatabase();
 
-        // チケットの存在と状態をチェック
         if (!db.hasOwnProperty(ticketId)) {
             showMessage('useMessage', '無効なチケットIDです。', false);
-        } else if (db[ticketId] === true) {
+            return;
+        }
+
+        // 古いバージョンで作ったデータにも対応するための処理
+        const ticketData = db[ticketId];
+        const isUsed = typeof ticketData === 'boolean' ? ticketData : ticketData.used;
+        const duration = typeof ticketData === 'boolean' ? '不明な' : ticketData.duration;
+
+        if (isUsed === true) {
             showMessage('useMessage', 'このチケットは既に使用済みです。', false);
         } else {
-            // 未使用なら「使用済み(true)」に変更して保存
-            db[ticketId] = true;
+            // 使用済みに更新
+            if (typeof ticketData === 'boolean') {
+                db[ticketId] = true; // 古いデータ形式の場合
+            } else {
+                db[ticketId].used = true; // 新しいデータ形式の場合
+            }
             saveTicketDatabase(db);
             
-            showMessage('useMessage', 'チケットを正常に使用しました！', true);
-            
-            // 入力欄を空にする
+            // 何分のチケットを使用したかを表示
+            showMessage('useMessage', `🎉 ${duration}分 のチケットを使用しました！`, true);
             document.getElementById('ticketInput').value = '';
+        }
+    }
+
+    // 3. 履歴モーダルの表示・非表示
+    function openHistory() {
+        const db = getTicketDatabase();
+        const unusedList = document.getElementById('unusedList');
+        const usedList = document.getElementById('usedList');
+        
+        // リストを一旦空にする
+        unusedList.innerHTML = '';
+        usedList.innerHTML = '';
+
+        // データを一つずつ取り出してリストに追加
+        for (let id in db) {
+            const ticketData = db[id];
+            const isUsed = typeof ticketData === 'boolean' ? ticketData : ticketData.used;
+            const duration = typeof ticketData === 'boolean' ? '?' : ticketData.duration;
+            const date = typeof ticketData === 'boolean' || !ticketData.date ? '' : ticketData.date;
+
+            const li = document.createElement('li');
+            li.innerHTML = `
+                <span>ID: <strong>${id}</strong> (${duration}分)</span>
+                <span class="history-date">${date}</span>
+            `;
+
+            if (isUsed) {
+                usedList.appendChild(li);
+            } else {
+                unusedList.appendChild(li);
+            }
+        }
+
+        // データが0件の場合のメッセージ
+        if(unusedList.innerHTML === '') unusedList.innerHTML = '<li>未使用のチケットはありません</li>';
+        if(usedList.innerHTML === '') usedList.innerHTML = '<li>使用済みのチケットはありません</li>';
+
+        document.getElementById('historyModal').style.display = 'block';
+    }
+
+    function closeHistory() {
+        document.getElementById('historyModal').style.display = 'none';
+    }
+
+    // モーダルの外枠をクリックした時にも閉じる機能
+    window.onclick = function(event) {
+        const modal = document.getElementById('historyModal');
+        if (event.target === modal) {
+            closeHistory();
         }
     }
 </script>
