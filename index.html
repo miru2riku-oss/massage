@@ -9,7 +9,7 @@
 <body>
 
 <div class="container">
-    <h1>マッサージ券 管理システム</h1>
+    <h1>💆‍♂️ マッサージ券 管理システム</h1>
 
     <div class="section">
         <h2>チケットを発行</h2>
@@ -27,7 +27,19 @@
 </div>
 
 <script>
-    const API_BASE_URL = 'http://localhost:8080/api/tickets';
+    // --- データベース（ローカルストレージ）操作用の補助関数 ---
+
+    // デバイスからチケットの記録を読み込む
+    function getTicketDatabase() {
+        const data = localStorage.getItem('massageTicketDB');
+        // データがあればJSONから変換、なければ空のオブジェクトを返す
+        return data ? JSON.parse(data) : {}; 
+    }
+
+    // デバイスにチケットの記録を保存する
+    function saveTicketDatabase(db) {
+        localStorage.setItem('massageTicketDB', JSON.stringify(db));
+    }
 
     // メッセージ表示用の共通関数
     function showMessage(elementId, message, isSuccess) {
@@ -36,69 +48,61 @@
         box.innerText = message;
     }
 
-    // チケット発行処理
-    async function issueTicket() {
-        const displayBox = document.getElementById('issuedTicketId');
+
+    // --- メイン機能 ---
+
+    // 1. チケット発行処理
+    function issueTicket() {
+        const db = getTicketDatabase();
+        let newId;
+
+        // すでに存在するIDと被らないように、ランダムな6桁を生成し続ける
+        do {
+            newId = Math.floor(100000 + Math.random() * 900000).toString();
+        } while (db.hasOwnProperty(newId));
+
+        // 生成したIDを「未使用(false)」としてデータベースに登録
+        db[newId] = false;
         
-        try {
-            // 修正箇所: 通信の形式をより厳密に指定しました
-            const response = await fetch(`${API_BASE_URL}/issue`, { 
-                method: 'POST',
-                headers: {
-                    'Accept': 'text/plain',
-                    'Content-Type': 'application/json'
-                }
-            });
-            
-            if (response.ok) {
-                const id = await response.text();
-                displayBox.style.display = 'block';
-                displayBox.innerText = id;
-                showMessage('issueMessage', '発行完了！', true);
-            } else {
-                // 404(Not Found)などのHTTPエラーをキャッチ
-                throw new Error(`ステータス ${response.status}`);
-            }
-        } catch (error) {
-            // 修正箇所: 単なる「失敗」ではなく、具体的なエラー理由を画面に出力します
-            console.error("エラー詳細:", error);
-            showMessage('issueMessage', `発行に失敗しました (${error.message})`, false);
-        }
+        // ローカルストレージに保存
+        saveTicketDatabase(db);
+
+        // 画面に表示
+        const displayBox = document.getElementById('issuedTicketId');
+        displayBox.style.display = 'block';
+        displayBox.innerText = newId;
+        showMessage('issueMessage', '発行完了！デバイスに保存しました。', true);
+        
+        // 使用側のメッセージをリセット
+        document.getElementById('useMessage').className = 'result-box';
     }
 
-    // チケット使用処理
-    async function useTicket() {
+    // 2. チケット使用処理
+    function useTicket() {
         const ticketId = document.getElementById('ticketInput').value;
 
-        if (!ticketId || ticketId.length !== 6) {
-            showMessage('useMessage', '6桁のIDを入力してください。', false);
+        // 入力チェック
+        if (!ticketId || ticketId.length !== 6 || isNaN(ticketId)) {
+            showMessage('useMessage', '6桁の数字を正しく入力してください。', false);
             return;
         }
 
-        try {
-            const response = await fetch(`${API_BASE_URL}/use`, {
-                method: 'POST',
-                headers: { 
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json' 
-                },
-                body: JSON.stringify({ id: ticketId })
-            });
+        const db = getTicketDatabase();
+
+        // チケットの存在と状態をチェック
+        if (!db.hasOwnProperty(ticketId)) {
+            showMessage('useMessage', '無効なチケットIDです。', false);
+        } else if (db[ticketId] === true) {
+            showMessage('useMessage', 'このチケットは既に使用済みです。', false);
+        } else {
+            // 未使用なら「使用済み(true)」に変更して保存
+            db[ticketId] = true;
+            saveTicketDatabase(db);
             
-            if (!response.ok) {
-                throw new Error(`ステータス ${response.status}`);
-            }
-
-            const result = await response.json();
-
-            if (result.status === 'success') {
-                showMessage('useMessage', result.message, true);
-            } else {
-                showMessage('useMessage', result.message, false);
-            }
-        } catch (error) {
-            console.error("エラー詳細:", error);
-            showMessage('useMessage', `通信エラー (${error.message})`, false);
+            showMessage('useMessage', 'チケットを正常に使用しました！', true);
+            
+            // 入力欄を空にする
+            document.getElementById('ticketInput').value = '';
         }
     }
 </script>
