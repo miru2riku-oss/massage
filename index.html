@@ -34,10 +34,12 @@
 
     <div class="section" style="border-bottom: none;">
         <button class="secondary-btn" onclick="openHistory()">📋 発行・使用履歴を見る</button>
+        
+        <button class="danger-btn" onclick="clearDatabase()">🗑 データをすべてリセット</button>
     </div>
 </div>
 
-<div class="version-text">v1.1.0</div>
+<div class="version-text">v1.2.0</div>
 
 <div id="historyModal" class="modal">
     <div class="modal-content">
@@ -65,10 +67,33 @@
         localStorage.setItem('massageTicketDB', JSON.stringify(db));
     }
 
+    // データをすべて消去する関数
+    function clearDatabase() {
+        // 間違えて押した時のために確認メッセージを出します
+        if (confirm("これまでの発行・使用履歴をすべて削除します。\n本当によろしいですか？")) {
+            localStorage.removeItem('massageTicketDB'); // データ消去
+            
+            // 画面の表示をリセット
+            document.getElementById('issuedTicketId').className = 'ticket-id-display';
+            document.getElementById('issueMessage').className = 'result-box';
+            document.getElementById('useMessage').className = 'result-box';
+            document.getElementById('ticketInput').value = '';
+            
+            alert("すべてのデータをリセットしました！");
+        }
+    }
+
+    // メッセージとアニメーションを表示する共通関数
     function showMessage(elementId, message, isSuccess) {
         const box = document.getElementById(elementId);
-        box.className = `result-box show ${isSuccess ? 'success' : 'error'}`;
-        box.innerText = message;
+        
+        // アニメーションを何度でも再生させるために、一度クラスを外してわずかな時間後に付け直す
+        box.className = 'result-box';
+        
+        setTimeout(() => {
+            box.className = `result-box show ${isSuccess ? 'success' : 'error'}`;
+            box.innerText = message;
+        }, 10);
     }
 
     // --- メイン機能 ---
@@ -76,31 +101,30 @@
     // 1. チケット発行処理
     function issueTicket() {
         const db = getTicketDatabase();
-        const duration = document.getElementById('massageDuration').value; // 選んだ分数を取得
+        const duration = document.getElementById('massageDuration').value;
         let newId;
 
         do {
             newId = Math.floor(100000 + Math.random() * 900000).toString();
         } while (db.hasOwnProperty(newId));
 
-        // データの保存形式をアップデート（分数や日付も一緒に保存）
         const now = new Date();
         const dateString = `${now.getMonth()+1}/${now.getDate()} ${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
         
-        db[newId] = {
-            used: false,
-            duration: duration,
-            date: dateString
-        };
-        
+        db[newId] = { used: false, duration: duration, date: dateString };
         saveTicketDatabase(db);
 
         const displayBox = document.getElementById('issuedTicketId');
-        displayBox.style.display = 'block';
-        displayBox.innerText = newId;
-        showMessage('issueMessage', `${duration}分のチケットを発行しました！`, true);
         
-        document.getElementById('useMessage').className = 'result-box';
+        // ポップアップアニメーションを再実行するための処理
+        displayBox.className = 'ticket-id-display';
+        setTimeout(() => {
+            displayBox.className = 'ticket-id-display show';
+            displayBox.innerText = newId;
+        }, 10);
+        
+        showMessage('issueMessage', `${duration}分のチケットを発行しました！`, true);
+        document.getElementById('useMessage').className = 'result-box'; // 使用側のメッセージを隠す
     }
 
     // 2. チケット使用処理
@@ -119,7 +143,6 @@
             return;
         }
 
-        // 古いバージョンで作ったデータにも対応するための処理
         const ticketData = db[ticketId];
         const isUsed = typeof ticketData === 'boolean' ? ticketData : ticketData.used;
         const duration = typeof ticketData === 'boolean' ? '不明な' : ticketData.duration;
@@ -127,17 +150,15 @@
         if (isUsed === true) {
             showMessage('useMessage', 'このチケットは既に使用済みです。', false);
         } else {
-            // 使用済みに更新
             if (typeof ticketData === 'boolean') {
-                db[ticketId] = true; // 古いデータ形式の場合
+                db[ticketId] = true;
             } else {
-                db[ticketId].used = true; // 新しいデータ形式の場合
+                db[ticketId].used = true;
             }
             saveTicketDatabase(db);
             
-            // 何分のチケットを使用したかを表示
             showMessage('useMessage', `🎉 ${duration}分 のチケットを使用しました！`, true);
-            document.getElementById('ticketInput').value = '';
+            document.getElementById('ticketInput').value = ''; // 入力欄を空にする
         }
     }
 
@@ -147,11 +168,9 @@
         const unusedList = document.getElementById('unusedList');
         const usedList = document.getElementById('usedList');
         
-        // リストを一旦空にする
         unusedList.innerHTML = '';
         usedList.innerHTML = '';
 
-        // データを一つずつ取り出してリストに追加
         for (let id in db) {
             const ticketData = db[id];
             const isUsed = typeof ticketData === 'boolean' ? ticketData : ticketData.used;
@@ -171,7 +190,6 @@
             }
         }
 
-        // データが0件の場合のメッセージ
         if(unusedList.innerHTML === '') unusedList.innerHTML = '<li>未使用のチケットはありません</li>';
         if(usedList.innerHTML === '') usedList.innerHTML = '<li>使用済みのチケットはありません</li>';
 
@@ -182,7 +200,6 @@
         document.getElementById('historyModal').style.display = 'none';
     }
 
-    // モーダルの外枠をクリックした時にも閉じる機能
     window.onclick = function(event) {
         const modal = document.getElementById('historyModal');
         if (event.target === modal) {
